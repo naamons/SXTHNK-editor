@@ -15,7 +15,7 @@ Edit the parameters as needed and save the changes back to the binary file.
 
 # File Uploaders
 uploaded_json = st.file_uploader("Upload JSON File", type=["json"])
-uploaded_binary = st.file_uploader("Upload Binary File", type=["bin", "dat", "exe", "bin"])
+uploaded_binary = st.file_uploader("Upload Binary File", type=["bin", "dat", "exe"])
 
 if uploaded_json and uploaded_binary:
     try:
@@ -40,6 +40,17 @@ if uploaded_json and uploaded_binary:
     def reverse_scaling(value, factor, offset):
         return (value - offset) / factor
     
+    # Function to determine cell data type based on cell length
+    def get_cell_data_type(cell_length):
+        if cell_length == 1:
+            return "int8"
+        elif cell_length == 2:
+            return "int16"
+        elif cell_length == 4:
+            return "int32"
+        else:
+            return None  # Unsupported
+    
     # Function to write a value to binary data
     def write_to_binary(offset_hex, length, data_type, sign_type, value, scaling):
         try:
@@ -51,7 +62,7 @@ if uploaded_json and uploaded_binary:
             st.error(f"Offset {offset_hex} with length {length} exceeds binary file size.")
             return
         # Reverse scaling if necessary
-        if scaling:
+        if scaling and data_type != "array":
             value = reverse_scaling(value, scaling.get('factor',1), scaling.get('offset',0))
         # Pack the value based on data type
         if data_type == "int8":
@@ -97,7 +108,7 @@ if uploaded_json and uploaded_binary:
         try:
             value = struct.unpack(fmt, data_slice)[0]
             # Apply scaling
-            if scaling:
+            if scaling and data_type != "array":
                 value = apply_scaling(value, scaling.get('factor',1), scaling.get('offset',0))
             return value
         except struct.error as e:
@@ -150,7 +161,7 @@ if uploaded_json and uploaded_binary:
                 st.session_state.edited_values[name] = edited_val
             
             elif input_type == "map_multiplier":
-                # Read current multiplier from session state or use default
+                # Read current multiplier from session state or use scaling factor
                 current_multiplier = st.session_state.edited_values.get(name, scaling.get('factor',1))
                 edited_val = st.slider(
                     label=name,
@@ -163,8 +174,15 @@ if uploaded_json and uploaded_binary:
                 st.session_state.edited_values[name] = edited_val
             
             elif input_type == "map_editor":
-                # Assume cell data type is int16 for this example
-                cell_data_type = "int16"
+                if rows ==0 or columns ==0:
+                    st.warning(f"Map '{name}' has invalid rows or columns.")
+                    continue
+                # Calculate cell_length and cell_data_type
+                cell_length = length // (rows * columns)
+                cell_data_type = get_cell_data_type(cell_length)
+                if cell_data_type is None:
+                    st.error(f"Unsupported cell length {cell_length} in map '{name}'.")
+                    continue
                 
                 # Read current map data from binary
                 map_data = []
@@ -173,8 +191,8 @@ if uploaded_json and uploaded_binary:
                     for col in range(columns):
                         # Calculate offset for each cell if applicable
                         # For simplicity, assume contiguous storage row-wise
-                        cell_offset = int(offset, 16) + (row * columns + col) * (length // (rows * columns))
-                        cell_value = read_from_binary(hex(cell_offset), length // (rows * columns), cell_data_type, sign_type, scaling)
+                        cell_offset = int(offset, 16) + (row * columns + col) * cell_length
+                        cell_value = read_from_binary(hex(cell_offset), cell_length, cell_data_type, sign_type, scaling)
                         row_data.append(cell_value)
                     map_data.append(row_data)
                 
@@ -262,27 +280,44 @@ if uploaded_json and uploaded_binary:
                     for related_map in group.get("maps", []):
                         if related_map.get("input_type") == "map_multiplier":
                             continue
-                        map_name = related_map.get("name")
-                        map_scaling = related_map.get("scaling", {})
-                        original_factor = map_scaling.get("factor",1)
-                        new_factor = original_factor * multiplier
-                        map_scaling['factor'] = new_factor
-                        related_map['scaling'] = map_scaling
-                        # Update binary with new scaling factor
-                        write_to_binary(related_map.get("offset"), related_map.get("length"), related_map.get("data_type"), related_map.get("sign_type", "unsigned"), new_factor, {})
+                        related_data_type = related_map.get("data_type")
+                        if related_data_type == "array":
+                            # Do not write scaling factors back to binary
+                            st.warning(f"Skipping writing scaling factor for map '{related_map.get('name')}' as it has data_type 'array'")
+                            # Update scaling factor in JSON to be used in display
+                            related_map_scaling = related_map.get("scaling", {})
+                            original_factor = related_map_scaling.get("factor",1)
+                            new_factor = original_factor * multiplier
+                            related_map_scaling['factor'] = new_factor
+                            related_map['scaling'] = related_map_scaling
+                            # Optionally, store new_factor in session_state or elsewhere
+                        else:
+                            # For non-array data_types, update scaling factor in binary
+                            map_name = related_map.get("name")
+                            map_scaling = related_map.get("scaling", {})
+                            original_factor = map_scaling.get("factor",1)
+                            new_factor = original_factor * multiplier
+                            map_scaling['factor'] = new_factor
+                            related_map['scaling'] = map_scaling
+                            # Update binary with new scaling factor
+                            write_to_binary(related_map.get("offset"), related_map.get("length"), related_map.get("data_type"), related_map.get("sign_type", "unsigned"), new_factor, {})
                 
                 elif input_type == "map_editor":
                     edited_df = st.session_state.edited_values.get(name)
                     if edited_df is not None:
                         rows = map_item.get("map_dimension", {}).get("rows", 0)
                         columns = map_item.get("map_dimension", {}).get("columns", 0)
-                        cell_data_type = "int16"  # Ensure this matches the assumed cell data type
+                        cell_length = length // (rows * columns)
+                        cell_data_type = get_cell_data_type(cell_length)
+                        if cell_data_type is None:
+                            st.error(f"Unsupported cell length {cell_length} in map '{name}'. Skipping.")
+                            continue
                         for r in range(rows):
                             for c in range(columns):
                                 cell_value = edited_df.iat[r, c]
                                 # Calculate cell offset
-                                cell_offset = int(offset, 16) + (r * columns + c) * (length // (rows * columns))
-                                write_to_binary(hex(cell_offset), length // (rows * columns), cell_data_type, sign_type, cell_value, scaling)
+                                cell_offset = int(offset, 16) + (r * columns + c) * cell_length
+                                write_to_binary(hex(cell_offset), cell_length, cell_data_type, sign_type, cell_value, scaling)
                 
                 # Add other input_types as needed
         
@@ -294,12 +329,24 @@ if uploaded_json and uploaded_binary:
                 multiplier = cs_value
                 for map_item in group.get("maps", []):
                     if map_item.get("input_type") in ["map_editor", "map_multiplier"]:
-                        map_scaling = map_item.get("scaling", {})
-                        original_factor = map_scaling.get("factor",1)
-                        new_factor = original_factor * multiplier
-                        map_scaling['factor'] = new_factor
-                        map_item['scaling'] = map_scaling
-                        write_to_binary(map_item.get("offset"), map_item.get("length"), map_item.get("data_type"), map_item.get("sign_type", "unsigned"), new_factor, {})
+                        related_data_type = map_item.get("data_type")
+                        if related_data_type == "array":
+                            # Do not write scaling factors back to binary
+                            st.warning(f"Skipping writing scaling factor for map '{map_item.get('name')}' as it has data_type 'array'")
+                            # Update scaling factor in JSON to be used in display
+                            map_scaling = map_item.get("scaling", {})
+                            original_factor = map_scaling.get("factor",1)
+                            new_factor = original_factor * multiplier
+                            map_scaling['factor'] = new_factor
+                            map_item['scaling'] = map_scaling
+                        else:
+                            # For non-array data_types, update scaling factor in binary
+                            map_scaling = map_item.get("scaling", {})
+                            original_factor = map_scaling.get("factor",1)
+                            new_factor = original_factor * multiplier
+                            map_scaling['factor'] = new_factor
+                            map_item['scaling'] = map_scaling
+                            write_to_binary(map_item.get("offset"), map_item.get("length"), map_item.get("data_type"), map_item.get("sign_type", "unsigned"), new_factor, {})
         
         # Process editable_maps
         for editable_map in json_data.get("editable_maps", []):
