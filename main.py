@@ -15,7 +15,7 @@ Edit the parameters as needed and save the changes back to the binary file.
 
 # File Uploaders
 uploaded_json = st.file_uploader("Upload JSON File", type=["json"])
-uploaded_binary = st.file_uploader("Upload Binary File", type=["bin", "dat", "bin"])
+uploaded_binary = st.file_uploader("Upload Binary File", type=["bin", "dat", "exe", "bin"])
 
 if uploaded_json and uploaded_binary:
     try:
@@ -42,7 +42,11 @@ if uploaded_json and uploaded_binary:
     
     # Function to write a value to binary data
     def write_to_binary(offset_hex, length, data_type, sign_type, value, scaling):
-        offset = int(offset_hex, 16)
+        try:
+            offset = int(offset_hex, 16)
+        except ValueError:
+            st.error(f"Invalid offset format: {offset_hex}")
+            return
         if offset + length > binary_size:
             st.error(f"Offset {offset_hex} with length {length} exceeds binary file size.")
             return
@@ -69,7 +73,11 @@ if uploaded_json and uploaded_binary:
     
     # Function to read a value from binary data
     def read_from_binary(offset_hex, length, data_type, sign_type, scaling):
-        offset = int(offset_hex, 16)
+        try:
+            offset = int(offset_hex, 16)
+        except ValueError:
+            st.error(f"Invalid offset format: {offset_hex}")
+            return None
         if offset + length > binary_size:
             st.error(f"Offset {offset_hex} with length {length} exceeds binary file size.")
             return None
@@ -142,10 +150,10 @@ if uploaded_json and uploaded_binary:
                 st.session_state.edited_values[name] = edited_val
             
             elif input_type == "map_multiplier":
-                # Read current multiplier from binary if applicable, else use default
+                # Read current multiplier from session state or use default
                 current_multiplier = st.session_state.edited_values.get(name, scaling.get('factor',1))
                 edited_val = st.slider(
-                    label=item.get("control_slider", {}).get("description", name),
+                    label=name,
                     min_value=0.5,
                     max_value=2.0,
                     value=current_multiplier,
@@ -155,6 +163,9 @@ if uploaded_json and uploaded_binary:
                 st.session_state.edited_values[name] = edited_val
             
             elif input_type == "map_editor":
+                # Assume cell data type is int16 for this example
+                cell_data_type = "int16"
+                
                 # Read current map data from binary
                 map_data = []
                 for row in range(rows):
@@ -163,50 +174,32 @@ if uploaded_json and uploaded_binary:
                         # Calculate offset for each cell if applicable
                         # For simplicity, assume contiguous storage row-wise
                         cell_offset = int(offset, 16) + (row * columns + col) * (length // (rows * columns))
-                        cell_value = read_from_binary(hex(cell_offset), length // (rows * columns), data_type, sign_type, scaling)
+                        cell_value = read_from_binary(hex(cell_offset), length // (rows * columns), cell_data_type, sign_type, scaling)
                         row_data.append(cell_value)
                     map_data.append(row_data)
                 
                 df = pd.DataFrame(map_data, columns=[f"Col {i+1}" for i in range(columns)])
                 
-                # Determine which columns or regions are editable
-                if editable_columns:
-                    editable = [False] * columns
-                    for col in editable_columns:
-                        if isinstance(col, int):
-                            editable[col] = True
-                    def make_editable(val, col_idx):
-                        if editable[col_idx]:
-                            return val
-                        else:
-                            return val
-                    edited_df = st.data_editor(
-                        df,
-                        num_rows="dynamic",
-                        use_container_width=True,
-                        key=name,
-                        disabled=[not editable[i] for i in range(columns)]
-                    )
-                    st.session_state.edited_values[name] = edited_df
-                elif editable_region:
-                    # Editable region based on start_row, end_row, start_column, end_column
-                    start_row = editable_region.get("start_row", 0)
-                    end_row = editable_region.get("end_row", rows-1)
-                    start_col = editable_region.get("start_column", 0)
-                    end_col = editable_region.get("end_column", columns-1)
-                    def is_editable(r, c):
-                        return start_row <= r <= end_row and start_col <= c <= end_col
-                    edited_df = st.data_editor(
-                        df,
-                        num_rows="dynamic",
-                        use_container_width=True,
-                        key=name,
-                        disabled=lambda r, c: not is_editable(r, c)
-                    )
-                    st.session_state.edited_values[name] = edited_df
+                # Determine which columns are editable
+                if isinstance(editable_columns, list):
+                    disabled_columns = [not (i in editable_columns) for i in range(columns)]
+                elif isinstance(editable_columns, str) and editable_columns.lower() == "all":
+                    disabled_columns = [False] * columns
                 else:
-                    # No editable fields
-                    st.dataframe(df)
+                    # Default to all columns editable if format is unexpected
+                    disabled_columns = [False] * columns
+                    st.warning(f"Unexpected format for 'editable_columns' in map '{name}'. All columns set to editable.")
+                
+                # Note: Streamlit's st.data_editor does not support per-cell disabling.
+                # Only entire columns can be disabled.
+                edited_df = st.data_editor(
+                    df,
+                    num_rows="dynamic",
+                    use_container_width=True,
+                    key=name,
+                    disabled=disabled_columns
+                )
+                st.session_state.edited_values[name] = edited_df
             
             elif input_type == "readonly":
                 # Display the value without allowing edits
@@ -283,26 +276,21 @@ if uploaded_json and uploaded_binary:
                     if edited_df is not None:
                         rows = map_item.get("map_dimension", {}).get("rows", 0)
                         columns = map_item.get("map_dimension", {}).get("columns", 0)
+                        cell_data_type = "int16"  # Ensure this matches the assumed cell data type
                         for r in range(rows):
                             for c in range(columns):
                                 cell_value = edited_df.iat[r, c]
                                 # Calculate cell offset
                                 cell_offset = int(offset, 16) + (r * columns + c) * (length // (rows * columns))
-                                write_to_binary(hex(cell_offset), length // (rows * columns), data_type, sign_type, cell_value, scaling)
+                                write_to_binary(hex(cell_offset), length // (rows * columns), cell_data_type, sign_type, cell_value, scaling)
                 
                 # Add other input_types as needed
-            
+        
             # Handle control sliders
             control_slider = group.get("control_slider")
             if control_slider:
                 cs_name = control_slider.get("name")
-                cs_input_type = control_slider.get("input_type")
-                cs_min = control_slider.get("min_value")
-                cs_max = control_slider.get("max_value")
-                cs_step = control_slider.get("step", 0.1)
-                cs_default = control_slider.get("default_value", 1.0)
-                cs_value = st.session_state.edited_values.get(cs_name, cs_default)
-                # Apply the multiplier to all related maps
+                cs_value = st.session_state.edited_values.get(cs_name, control_slider.get("default_value", 1.0))
                 multiplier = cs_value
                 for map_item in group.get("maps", []):
                     if map_item.get("input_type") in ["map_editor", "map_multiplier"]:
