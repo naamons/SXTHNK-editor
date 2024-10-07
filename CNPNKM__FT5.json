@@ -1,0 +1,418 @@
+{
+  "calibration_id": "CNPNKM__FT5A",
+  "map_groups": [
+    {
+      "group_name": "Primary_Boost_Maps",
+      "description": "Group of primary boost maps that should be edited together.",
+      "maps": [
+        {
+          "name": "Primary_Boost_Map_1",
+          "description": "First boost map for different RPM levels. Only the 4th column is editable.",
+          "offset": "0x222D64",
+          "length": 48,
+          "data_type": "array",
+          "sign_type": "unsigned",
+          "input_type": "map_editor",
+          "map_dimension": {
+            "rows": 6,
+            "columns": 4,
+            "editable_columns": [3],
+            "x_axis_name": "RPM",
+            "y_axis_name": "Boost Pressure (PSI)"
+          },
+          "x_axis": {
+            "start_offset": "0x20B6AA",
+            "length": 2,
+            "data_type": "int16",
+            "sign_type": "unsigned",
+            "input_type": "readonly",
+            "scaling": {
+              "factor": 1,
+              "offset": 0
+            }
+          },
+          "scaling": {
+            "factor": 0.082917524987,
+            "offset": -14.7,
+            "current_unit": "hPa",
+            "display_unit": "PSI"
+          },
+          "min_value": 18.0,
+          "max_value": 24.0,
+          "advanced": true
+        },
+        {
+          "name": "Primary_Boost_Map_2",
+          "description": "Second boost map for different RPM levels. Only the 4th column is editable.",
+          "offset": "0x222D94",
+          "length": 48,
+          "data_type": "array",
+          "sign_type": "unsigned",
+          "input_type": "map_editor",
+          "map_dimension": {
+            "rows": 6,
+            "columns": 4,
+            "editable_columns": [3],
+            "x_axis_name": "RPM",
+            "y_axis_name": "Boost Pressure (PSI)"
+          },
+          "x_axis": {
+            "start_offset": "0x20B6AA",
+            "length": 2,
+            "data_type": "int16",
+            "sign_type": "unsigned",
+            "input_type": "readonly",
+            "scaling": {
+              "factor": 1,
+              "offset": 0
+            }
+          },
+          "scaling": {
+            "factor": 0.001203,
+            "offset": -0.2134,
+            "current_unit": "PSI",
+            "display_unit": "PSI"
+          },
+          "min_value": 18.0,
+          "max_value": 24.0,
+          "advanced": true
+        }
+      ],
+      "sync": true
+    },
+    {
+      "group_name": "Ignition_Advance_Maps",
+      "description": "Group of ignition advance maps for different scenarios. Only a small section of each map is editable (rows 9-16 of column 12).",
+      "maps": [
+        {
+          "name": "Ignition_Advance_Map_1",
+          "description": "First ignition advance map. Only rows 9-16 of column 12 are editable.",
+          "offset": "0x23CE38",
+          "length": 192,
+          "data_type": "array",
+          "sign_type": "unsigned",
+          "input_type": "map_editor",
+          "map_dimension": {
+            "rows": 12,
+            "columns": 16,
+            "editable_region": {
+              "start_row": 8,
+              "end_row": 15,
+              "start_column": 11,
+              "end_column": 11
+            },
+            "x_axis_name": "RPM",
+            "y_axis_name": "Ignition Advance (°)"
+          },
+          "x_axis": {
+            "start_offset": "0x23C6EE",
+            "length": 2,
+            "data_type": "int16",
+            "sign_type": "unsigned",
+            "input_type": "readonly",
+            "scaling": {
+              "factor": 1,
+              "offset": 0
+            }
+          },
+          "scaling": {
+            "factor": 0.375,
+            "offset": -35.625,
+            "precision": 3,
+            "current_unit": "eprom",
+            "display_unit": "°"
+          },
+          "advanced": true
+        },
+        {
+          "name": "Ignition_Advance_Map_2",
+          "description": "Second ignition advance map. Only rows 9-16 of column 12 are editable.",
+          "offset": "0x23CEF8",
+          "length": 192,
+          "data_type": "array",
+          "sign_type": "unsigned",
+          "input_type": "map_editor",
+          "map_dimension": {
+            "rows": 12,
+            "columns": 16,
+            "editable_region": {
+              "start_row": 8,
+              "end_row": 15,
+              "start_column": 11,
+              "end_column": 11
+            },
+            "x_axis_name": "RPM",
+            "y_axis_name": "Ignition Advance (°)"
+          },
+          "x_axis": {
+            "start_offset": "0x23C6EE",
+            "length": 2,
+            "data_type": "int16",
+            "sign_type": "unsigned",
+            "input_type": "readonly",
+            "scaling": {
+              "factor": 1,
+              "offset": 0
+            }
+          },
+          "scaling": {
+            "factor": 0.375,
+            "offset": -35.625,
+            "precision": 3,
+            "current_unit": "eprom",
+            "display_unit": "°"
+          },
+          "advanced": true
+        },
+        {
+          "name": "Ignition_Advance_Map_3",
+          "description": "Third ignition advance map. Only rows 9-16 of column 12 are editable.",
+          "offset": "0x23CFB8",
+          "length": 192,
+          "data_type": "array",
+          "sign_type": "unsigned",
+          "input_type": "map_editor",
+          "map_dimension": {
+            "rows": 12,
+            "columns": 16,
+            "editable_region": {
+              "start_row": 8,
+              "end_row": 15,
+              "start_column": 11,
+              "end_column": 11
+            },
+            "x_axis_name": "RPM",
+            "y_axis_name": "Ignition Advance (°)"
+          },
+          "x_axis": {
+            "start_offset": "0x23C6EE",
+            "length": 2,
+            "data_type": "int16",
+            "sign_type": "unsigned",
+            "input_type": "readonly",
+            "scaling": {
+              "factor": 1,
+              "offset": 0
+            }
+          },
+          "scaling": {
+            "factor": 0.375,
+            "offset": -35.625,
+            "precision": 3,
+            "current_unit": "eprom",
+            "display_unit": "°"
+          },
+          "advanced": true
+        },
+        {
+          "name": "Ignition_Advance_Map_4",
+          "description": "Fourth ignition advance map. Only rows 9-16 of column 12 are editable.",
+          "offset": "0x23D078",
+          "length": 192,
+          "data_type": "array",
+          "sign_type": "unsigned",
+          "input_type": "map_editor",
+          "map_dimension": {
+            "rows": 12,
+            "columns": 16,
+            "editable_region": {
+              "start_row": 8,
+              "end_row": 15,
+              "start_column": 11,
+              "end_column": 11
+            },
+            "x_axis_name": "RPM",
+            "y_axis_name": "Ignition Advance (°)"
+          },
+          "x_axis": {
+            "start_offset": "0x23C6EE",
+            "length": 2,
+            "data_type": "int16",
+            "sign_type": "unsigned",
+            "input_type": "readonly",
+            "scaling": {
+              "factor": 1,
+              "offset": 0
+            }
+          },
+          "scaling": {
+            "factor": 0.375,
+            "offset": -35.625,
+            "precision": 3,
+            "current_unit": "eprom",
+            "display_unit": "°"
+          },
+          "advanced": true
+        }
+      ],
+      "sync": true
+    },
+    {
+      "group_name": "Pop_Aggressiveness_Maps",
+      "description": "Group of pop aggressiveness maps that need to be in sync. Adjusting the slider will multiply the entire map by a factor for more or less aggressive pops.",
+      "maps": [
+        {
+          "name": "Pop_Aggressiveness_Map_1",
+          "description": "First pop aggressiveness map. Controls how aggressive the exhaust pops are.",
+          "offset": "0x23DDE8",
+          "length": 100,
+          "data_type": "array",
+          "sign_type": "unsigned",
+          "input_type": "map_multiplier",
+          "map_dimension": {
+            "rows": 10,
+            "columns": 10,
+            "x_axis_name": "RPM",
+            "y_axis_name": "mg/stk"
+          },
+          "scaling": {
+            "factor": 0.375,
+            "offset": -35.625,
+            "current_unit": "eprom",
+            "display_unit": "°"
+          },
+          "advanced": true
+        },
+        {
+          "name": "Pop_Aggressiveness_Map_2",
+          "description": "Second pop aggressiveness map. Controls how aggressive the exhaust pops are.",
+          "offset": "0x23DEB0",
+          "length": 100,
+          "data_type": "array",
+          "sign_type": "unsigned",
+          "input_type": "map_multiplier",
+          "map_dimension": {
+            "rows": 10,
+            "columns": 10,
+            "x_axis_name": "RPM",
+            "y_axis_name": "mg/stk"
+          },
+          "scaling": {
+            "factor": 0.375,
+            "offset": -35.625,
+            "current_unit": "eprom",
+            "display_unit": "°"
+          },
+          "advanced": true
+        }
+      ],
+      "sync": true,
+      "control_slider": {
+        "name": "Pop Aggressiveness Control",
+        "description": "Controls the overall aggressiveness of pops, from less aggressive to more aggressive.",
+        "input_type": "slider",
+        "min_value": 0.5,
+        "max_value": 2.0,
+        "step": 0.1,
+        "default_value": 1.0,
+        "advanced": true
+      }
+    },
+    {
+      "group_name": "Engine_Speed_Limits",
+      "description": "Group of engine speed limits that should be edited together. Min value is 6720 RPM, max value is 7500 RPM.",
+      "maps": [
+        {
+          "name": "Engine_Speed_Limit_Map_1",
+          "description": "First engine speed limit map.",
+          "offset": "0x205BBE",
+          "length": 2,
+          "data_type": "int16",
+          "sign_type": "signed",
+          "input_type": "slider",
+          "min_value": 6720,
+          "max_value": 7500,
+          "step": 10,
+          "default_value": 7000,
+          "advanced": false
+        },
+        {
+          "name": "Engine_Speed_Limit_Map_2",
+          "description": "Second engine speed limit map.",
+          "offset": "0x205BBC",
+          "length": 2,
+          "data_type": "int16",
+          "sign_type": "signed",
+          "input_type": "slider",
+          "min_value": 6720,
+          "max_value": 7500,
+          "step": 10,
+          "default_value": 7000,
+          "advanced": false
+        },
+        {
+          "name": "Engine_Speed_Limit_Map_3",
+          "description": "Third engine speed limit map.",
+          "offset": "0x201A28",
+          "length": 2,
+          "data_type": "int16",
+          "sign_type": "signed",
+          "input_type": "slider",
+          "min_value": 6720,
+          "max_value": 7500,
+          "step": 10,
+          "default_value": 7000,
+          "advanced": false
+        },
+        {
+          "name": "Engine_Speed_Limit_Map_4",
+          "description": "Fourth engine speed limit map.",
+          "offset": "0x201A08",
+          "length": 1,
+          "data_type": "int8",
+          "sign_type": "unsigned",
+          "input_type": "slider",
+          "scaling": {
+            "factor": 32,
+            "offset": 0
+          },
+          "min_value": 6720,
+          "max_value": 7500,
+          "step": 10,
+          "default_value": 7000,
+          "advanced": false
+        },
+        {
+          "name": "Engine_Speed_Limit_Map_5",
+          "description": "Fifth engine speed limit map.",
+          "offset": "0x24125C",
+          "length": 18,
+          "data_type": "array",
+          "sign_type": "unsigned",
+          "input_type": "map_editor",
+          "map_dimension": {
+            "rows": 3,
+            "columns": 6,
+            "editable_columns": "all",
+            "x_axis_name": "RPM",
+            "y_axis_name": "mg/stk"
+          },
+          "scaling": {
+            "factor": 32,
+            "offset": 0
+          },
+          "min_value": 6720,
+          "max_value": 7500,
+          "advanced": false
+        }
+      ],
+      "sync": true
+    }
+  ],
+  "editable_maps": [
+    {
+      "name": "Max_RPM_Launch_Control",
+      "description": "Sets the maximum RPM for launch control.",
+      "offset": "0x201A70",
+      "length": 2,
+      "data_type": "int16",
+      "sign_type": "unsigned",
+      "input_type": "slider",
+      "min_value": 3000,
+      "max_value": 6500,
+      "step": 100,
+      "default_value": 4000,
+      "advanced": false
+    }
+  ]
+}
