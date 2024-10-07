@@ -116,7 +116,7 @@ if uploaded_json and uploaded_binary:
             return None
     
     # Iterate through map_groups and editable_maps
-    def process_maps(group_or_editable, group_name=""):
+    def process_maps(group_or_editable, group_name="", editable_only=False):
         if group_name:
             st.header(group_name)
         for item in group_or_editable:
@@ -180,20 +180,8 @@ if uploaded_json and uploaded_binary:
                     st.error(f"Error creating slider '{name}': {e}")
             
             elif input_type == "map_multiplier":
-                # Read current multiplier from session state or use scaling factor
-                current_multiplier = st.session_state.edited_values.get(name, scaling.get('factor',1))
-                try:
-                    edited_val = st.slider(
-                        label=name,
-                        min_value=0.5,
-                        max_value=2.0,
-                        value=current_multiplier,
-                        step=0.1,
-                        key=name
-                    )
-                    st.session_state.edited_values[name] = edited_val
-                except Exception as e:
-                    st.error(f"Error creating map_multiplier slider '{name}': {e}")
+                # Skip individual map_multiplier sliders; handled by group control_slider
+                continue
             
             elif input_type == "map_editor":
                 if rows == 0 or columns == 0:
@@ -220,25 +208,37 @@ if uploaded_json and uploaded_binary:
                 
                 df = pd.DataFrame(map_data, columns=[f"Col {i+1}" for i in range(columns)])
                 
-                # Determine which columns are editable
-                if isinstance(editable_columns, list):
-                    disabled_columns = [not (i in editable_columns) for i in range(columns)]
-                elif isinstance(editable_columns, str) and editable_columns.lower() == "all":
-                    disabled_columns = [False] * columns
+                # Determine which cells are editable
+                editable_mask = pd.DataFrame(False, index=df.index, columns=df.columns)
+                if editable_columns == "all":
+                    editable_mask = pd.DataFrame(True, index=df.index, columns=df.columns)
+                elif isinstance(editable_columns, list):
+                    for col in editable_columns:
+                        if isinstance(col, int) and 0 <= col < columns:
+                            editable_mask.iloc[:, col] = True
+                        else:
+                            st.warning(f"Invalid column index '{col}' in map '{name}'. Skipping column editing for this index.")
+                elif editable_region:
+                    start_row = editable_region.get("start_row", 0)
+                    end_row = editable_region.get("end_row", rows - 1)
+                    start_column = editable_region.get("start_column", 0)
+                    end_column = editable_region.get("end_column", columns - 1)
+                    for r in range(start_row, end_row + 1):
+                        for c in range(start_column, end_column + 1):
+                            if 0 <= r < rows and 0 <= c < columns:
+                                editable_mask.iat[r, c] = True
                 else:
-                    # Default to all columns editable if format is unexpected
-                    disabled_columns = [False] * columns
-                    st.warning(f"Unexpected format for 'editable_columns' in map '{name}'. All columns set to editable.")
+                    st.warning(f"No editable columns or regions specified for map '{name}'. All cells set to read-only.")
                 
-                # Note: Streamlit's st.data_editor does not support per-cell disabling.
-                # Only entire columns can be disabled.
+                # Extract editable data
+                editable_data = df.where(editable_mask)
+                
                 try:
                     edited_df = st.data_editor(
-                        df,
+                        editable_data,
                         num_rows="dynamic",
                         use_container_width=True,
-                        key=name,
-                        disabled=disabled_columns
+                        key=name
                     )
                     st.session_state.edited_values[name] = edited_df
                 except Exception as e:
@@ -254,51 +254,58 @@ if uploaded_json and uploaded_binary:
             else:
                 st.warning(f"Unsupported input type: {input_type}")
     
-    st.header("Map Groups")
-    for group in json_data.get("map_groups", []):
-        group_name = group.get("group_name", "Unnamed Group")
-        process_maps(group.get("maps", []), group_name=group_name)
-        # Handle control sliders if any
-        control_slider = group.get("control_slider")
-        if control_slider:
-            cs_name = control_slider.get("name")
-            cs_description = control_slider.get("description", "")
-            cs_min = control_slider.get("min_value")
-            cs_max = control_slider.get("max_value")
-            cs_step = control_slider.get("step", 0.1)
-            cs_default = control_slider.get("default_value", 1.0)
+    # Function to process all map groups and editable maps
+    def display_maps():
+        st.header("Map Groups")
+        for group in json_data.get("map_groups", []):
+            group_name = group.get("group_name", "Unnamed Group")
+            maps = group.get("maps", [])
+            process_maps(maps, group_name=group_name)
             
-            # Validate control slider parameters
-            if cs_min is None or cs_max is None or cs_step is None:
-                st.error(f"Control slider '{cs_name}' is missing 'min_value', 'max_value', or 'step'. Skipping.")
-                continue
-            if not isinstance(cs_min, (int, float)) or not isinstance(cs_max, (int, float)) or not isinstance(cs_step, (int, float)):
-                st.error(f"Control slider '{cs_name}' has invalid 'min_value', 'max_value', or 'step' types. Skipping.")
-                continue
-            if cs_min > cs_max:
-                st.error(f"Control slider '{cs_name}' has 'min_value' greater than 'max_value'. Skipping.")
-                continue
-            
-            st.subheader(cs_name)
-            st.write(cs_description)
-            current_cs = st.session_state.edited_values.get(cs_name, cs_default)
-            # Ensure current_cs is within min and max
-            current_cs = max(cs_min, min(cs_max, current_cs))
-            try:
-                edited_cs = st.slider(
-                    label=cs_name,
-                    min_value=cs_min,
-                    max_value=cs_max,
-                    value=current_cs,
-                    step=cs_step,
-                    key=cs_name
-                )
-                st.session_state.edited_values[cs_name] = edited_cs
-            except Exception as e:
-                st.error(f"Error creating control slider '{cs_name}': {e}")
+            # Handle control sliders if any
+            control_slider = group.get("control_slider")
+            if control_slider:
+                cs_name = control_slider.get("name")
+                cs_description = control_slider.get("description", "")
+                cs_min = control_slider.get("min_value")
+                cs_max = control_slider.get("max_value")
+                cs_step = control_slider.get("step", 0.1)
+                cs_default = control_slider.get("default_value", 1.0)
+                
+                # Validate control slider parameters
+                if cs_min is None or cs_max is None or cs_step is None:
+                    st.error(f"Control slider '{cs_name}' is missing 'min_value', 'max_value', or 'step'. Skipping.")
+                    continue
+                if not isinstance(cs_min, (int, float)) or not isinstance(cs_max, (int, float)) or not isinstance(cs_step, (int, float)):
+                    st.error(f"Control slider '{cs_name}' has invalid 'min_value', 'max_value', or 'step' types. Skipping.")
+                    continue
+                if cs_min > cs_max:
+                    st.error(f"Control slider '{cs_name}' has 'min_value' greater than 'max_value'. Skipping.")
+                    continue
+                
+                st.subheader(cs_name)
+                st.write(cs_description)
+                current_cs = st.session_state.edited_values.get(cs_name, cs_default)
+                # Ensure current_cs is within min and max
+                current_cs = max(cs_min, min(cs_max, current_cs))
+                try:
+                    edited_cs = st.slider(
+                        label=cs_name,
+                        min_value=cs_min,
+                        max_value=cs_max,
+                        value=current_cs,
+                        step=cs_step,
+                        key=cs_name
+                    )
+                    st.session_state.edited_values[cs_name] = edited_cs
+                except Exception as e:
+                    st.error(f"Error creating control slider '{cs_name}': {e}")
+        
+        st.header("Editable Maps")
+        editable_maps = json_data.get("editable_maps", [])
+        process_maps(editable_maps, group_name="Editable Maps")
     
-    st.header("Editable Maps")
-    process_maps(json_data.get("editable_maps", []), group_name="Editable Maps")
+    display_maps()
     
     # Save Button
     if st.button("Save Changes"):
@@ -306,7 +313,8 @@ if uploaded_json and uploaded_binary:
             # Apply edited values to binary_data
             # Process map_groups
             for group in json_data.get("map_groups", []):
-                for map_item in group.get("maps", []):
+                maps = group.get("maps", [])
+                for map_item in maps:
                     name = map_item.get("name")
                     input_type = map_item.get("input_type")
                     data_type = map_item.get("data_type")
@@ -320,9 +328,10 @@ if uploaded_json and uploaded_binary:
                         write_to_binary(offset, length, data_type, sign_type, value, scaling)
                     
                     elif input_type == "map_multiplier":
-                        multiplier = st.session_state.edited_values.get(name, scaling.get("factor",1))
+                        # Handled by group control_slider
+                        multiplier = st.session_state.edited_values.get(group.get("control_slider", {}).get("name"), scaling.get("factor",1))
                         # Apply multiplier to all related maps
-                        for related_map in group.get("maps", []):
+                        for related_map in maps:
                             if related_map.get("input_type") == "map_multiplier":
                                 continue
                             related_data_type = related_map.get("data_type")
@@ -335,7 +344,6 @@ if uploaded_json and uploaded_binary:
                                 new_factor = original_factor * multiplier
                                 related_map_scaling['factor'] = new_factor
                                 related_map['scaling'] = related_map_scaling
-                                # Optionally, store new_factor in session_state or elsewhere
                             else:
                                 # For non-array data_types, update scaling factor in binary
                                 map_name = related_map.get("name")
@@ -350,19 +358,37 @@ if uploaded_json and uploaded_binary:
                     elif input_type == "map_editor":
                         edited_df = st.session_state.edited_values.get(name)
                         if edited_df is not None:
-                            rows = map_item.get("map_dimension", {}).get("rows", 0)
-                            columns = map_item.get("map_dimension", {}).get("columns", 0)
-                            cell_length = length // (rows * columns)
-                            cell_data_type = get_cell_data_type(cell_length)
-                            if cell_data_type is None:
-                                st.error(f"Unsupported cell length {cell_length} in map '{name}'. Skipping.")
-                                continue
-                            for r in range(rows):
-                                for c in range(columns):
-                                    cell_value = edited_df.iat[r, c]
-                                    # Calculate cell offset
-                                    cell_offset = int(offset, 16) + (r * columns + c) * cell_length
-                                    write_to_binary(hex(cell_offset), cell_length, cell_data_type, sign_type, cell_value, scaling)
+                            map_dimension = map_item.get("map_dimension", {})
+                            editable_columns = map_dimension.get("editable_columns", [])
+                            editable_region = map_dimension.get("editable_region", {})
+                            rows = map_dimension.get("rows", 0)
+                            columns = map_dimension.get("columns", 0)
+                            
+                            if editable_columns or editable_region:
+                                # Calculate cell_length and cell_data_type
+                                cell_length = length // (rows * columns)
+                                cell_data_type = get_cell_data_type(cell_length)
+                                if cell_data_type is None:
+                                    st.error(f"Unsupported cell length {cell_length} in map '{name}'. Skipping.")
+                                    continue
+                                
+                                for r in range(rows):
+                                    for c in range(columns):
+                                        # Check if the cell is editable
+                                        is_editable = False
+                                        if editable_columns == "all":
+                                            is_editable = True
+                                        elif isinstance(editable_columns, list) and c in editable_columns:
+                                            is_editable = True
+                                        if editable_region:
+                                            if (editable_region.get("start_row", 0) <= r <= editable_region.get("end_row", rows-1) and
+                                                editable_region.get("start_column", 0) <= c <= editable_region.get("end_column", columns-1)):
+                                                is_editable = True
+                                        if is_editable:
+                                            cell_value = edited_df.iat[r, c]
+                                            # Calculate cell offset
+                                            cell_offset = int(offset, 16) + (r * columns + c) * cell_length
+                                            write_to_binary(hex(cell_offset), cell_length, cell_data_type, sign_type, cell_value, scaling)
                     
                     # Add other input_types as needed
             
@@ -372,26 +398,26 @@ if uploaded_json and uploaded_binary:
                     cs_name = control_slider.get("name")
                     cs_value = st.session_state.edited_values.get(cs_name, control_slider.get("default_value", 1.0))
                     multiplier = cs_value
-                    for map_item in group.get("maps", []):
-                        if map_item.get("input_type") in ["map_editor", "map_multiplier"]:
-                            related_data_type = map_item.get("data_type")
+                    for related_map in maps:
+                        if related_map.get("input_type") in ["map_editor", "map_multiplier"]:
+                            related_data_type = related_map.get("data_type")
                             if related_data_type == "array":
                                 # Do not write scaling factors back to binary
-                                st.warning(f"Skipping writing scaling factor for map '{map_item.get('name')}' as it has data_type 'array'")
+                                st.warning(f"Skipping writing scaling factor for map '{related_map.get('name')}' as it has data_type 'array'")
                                 # Update scaling factor in JSON to be used in display
-                                map_scaling = map_item.get("scaling", {})
-                                original_factor = map_scaling.get("factor",1)
+                                related_map_scaling = related_map.get("scaling", {})
+                                original_factor = related_map_scaling.get("factor",1)
                                 new_factor = original_factor * multiplier
-                                map_scaling['factor'] = new_factor
-                                map_item['scaling'] = map_scaling
+                                related_map_scaling['factor'] = new_factor
+                                related_map['scaling'] = related_map_scaling
                             else:
                                 # For non-array data_types, update scaling factor in binary
-                                map_scaling = map_item.get("scaling", {})
+                                map_scaling = related_map.get("scaling", {})
                                 original_factor = map_scaling.get("factor",1)
                                 new_factor = original_factor * multiplier
                                 map_scaling['factor'] = new_factor
-                                map_item['scaling'] = map_scaling
-                                write_to_binary(map_item.get("offset"), map_item.get("length"), map_item.get("data_type"), map_item.get("sign_type", "unsigned"), new_factor, {})
+                                related_map['scaling'] = map_scaling
+                                write_to_binary(related_map.get("offset"), related_map.get("length"), related_map.get("data_type"), related_map.get("sign_type", "unsigned"), new_factor, {})
         
         # Process editable_maps
             for editable_map in json_data.get("editable_maps", []):
@@ -407,7 +433,7 @@ if uploaded_json and uploaded_binary:
                     value = st.session_state.edited_values.get(name, editable_map.get("default_value"))
                     write_to_binary(offset, length, data_type, sign_type, value, scaling)
         
-        # Provide the modified binary for download
+            # Provide the modified binary for download
             st.success("Changes applied successfully.")
             modified_binary = BytesIO(binary_data)
             st.download_button(
